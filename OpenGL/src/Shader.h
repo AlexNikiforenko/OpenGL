@@ -9,6 +9,8 @@ public:
 	// Program ID
 	unsigned int ID;
 
+	Shader() : ID(0) {}
+
 	// Constructor reads and build shader
 	Shader(const char* vertexPath, const char* fragmentPath);
 

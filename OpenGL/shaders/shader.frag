@@ -6,6 +6,7 @@ in vec2 texCoord;
 
 uniform float colorOffset;
 uniform float mixValue;
+uniform float time;
 
 uniform sampler2D texture1;
 uniform sampler2D texture2;
