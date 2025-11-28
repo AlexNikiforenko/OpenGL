@@ -2,16 +2,29 @@
 
 #include "CubeVertices.h"
 #include "Input.h"
+#include "Texture.h"
 
 #include "stb_image.h"
 #include <iostream>
 
 
 /*
-	// Remove paint tress
+	// Remove paint traces
 	// Choose texture
-	// Texture class
 	// Collisions
+	// Controller support
+	// Fix roll vectors (opposite directions)
+
+	// Add scene class
+	// Add renderer class
+	// Add cube renderer class
+	// Add BW shader for screamer
+	// Try color light
+
+	// TODO: Clean a LOT of SHIT
+	// shaders, VAOs, VBOs
+
+	// TODO: Add ImGui for lightning
 */
 
 Window::Window(int width, int height, const char* title) 
@@ -52,7 +65,8 @@ Window::Window(int width, int height, const char* title)
 
 	m_Camera = Camera(glm::vec3(0.0f, 0.0f, 3.0f));
 
-	m_Shader = Shader("shaders/shader.vert", "shaders/shader.frag");
+	m_Shader = Shader("resources/shaders/shader.vert", "resources/shaders/shader.frag");
+	m_LightShader = Shader("resources/shaders/light_cube.vert", "resources/shaders/light_cube.frag");
 
 	m_CubePositions = {
 		glm::vec3(0.0f,  0.0f,  0.0f),
@@ -75,69 +89,43 @@ Window::Window(int width, int height, const char* title)
 		1, 2, 3  // second triangle
 	};
 
-	glGenVertexArrays(1, &m_VAO);
+	glGenVertexArrays(1, &m_CubeVAO);
 	glGenBuffers(1, &m_VBO);
 	glGenBuffers(1, &m_EBO);
 
-	glBindVertexArray(m_VAO);
+	glBindVertexArray(m_CubeVAO);
 
 	glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
-	glBufferData(GL_ARRAY_BUFFER, sizeof(vertices), vertices, GL_STATIC_DRAW);
+	glBufferData(GL_ARRAY_BUFFER, sizeof(normalTexVerts), normalTexVerts, GL_STATIC_DRAW);
 
-	glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, m_EBO);
-	glBufferData(GL_ELEMENT_ARRAY_BUFFER, sizeof(indices), indices, GL_STATIC_DRAW);
+	
 
-	// position attribute
-	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)0);
+	const int STRIDE = 8 * sizeof(float);
+
+	// Position attribute (3 float)
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)0);
 	glEnableVertexAttribArray(0);
 
-	// color attribute
-	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
-	//glEnableVertexAttribArray(1);
+	// Normal attribute (3 float)
+	glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)(3 * sizeof(float)));
+	glEnableVertexAttribArray(1);
 
-	// texture attribute
-	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, 5 * sizeof(float), (void*)(3 * sizeof(float)));
+	//  Texture attribute (2 float) 
+	glVertexAttribPointer(2, 2, GL_FLOAT, GL_FALSE, STRIDE, (void*)(6 * sizeof(float)));
 	glEnableVertexAttribArray(2);
-	//glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
+
+	// Light's VAO
+	glGenVertexArrays(1, &m_LightVAO);
+	glBindVertexArray(m_LightVAO);
+
+	glBindBuffer(GL_ARRAY_BUFFER, m_VBO);
+	glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, STRIDE, (void*)0);
+	glEnableVertexAttribArray(0);
+
 
 	// Load and create texture1
-	glGenTextures(1, &m_Texture1);
-	glBindTexture(GL_TEXTURE_2D, m_Texture1);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_MIRRORED_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_MIRRORED_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR_MIPMAP_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	int texWidth, texHeight, nrChannels;
-	unsigned char* data = stbi_load("resources/textures/image.jpg", &texWidth, &texHeight, &nrChannels, 0);
-	if (data) {
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else {
-		std::cout << "Failed to load texture\n";
-	}
-	stbi_image_free(data);
-
-	// texture2
-	glGenTextures(1, &m_Texture2);
-	glBindTexture(GL_TEXTURE_2D, m_Texture2);
-
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_REPEAT);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-	glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-
-	data = stbi_load("resources/textures/screamer.jpg", &texWidth, &texHeight, &nrChannels, 0);
-	if (data) {
-		glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, texWidth, texHeight, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
-		glGenerateMipmap(GL_TEXTURE_2D);
-	}
-	else {
-		std::cout << "Failed to load texture\n";
-	}
-	stbi_image_free(data);
+	m_Texture1 = std::make_unique<Texture>("resources/textures/image.jpg");
+	m_Texture2 = std::make_unique<Texture>("resources/textures/screamer.jpg");
 
 	m_Shader.use();
 	m_Shader.setInt("texture1", 0);
@@ -147,13 +135,25 @@ Window::Window(int width, int height, const char* title)
 }
 
 Window::~Window() {
+	ImGui_ImplOpenGL3_Shutdown();
+	ImGui_ImplGlfw_Shutdown();
+	ImGui::DestroyContext();
+
 	glfwTerminate();
-	glDeleteVertexArrays(1, &m_VAO);
+	glDeleteVertexArrays(1, &m_CubeVAO);
+	glDeleteVertexArrays(1, &m_LightVAO);
 	glDeleteBuffers(1, &m_VBO);
 	glDeleteBuffers(1, &m_EBO);
 }
 
 void Window::run() {
+	IMGUI_CHECKVERSION();
+	ImGui::CreateContext();
+	ImGuiIO& io = ImGui::GetIO();
+	ImGui::StyleColorsDark();
+	ImGui_ImplGlfw_InitForOpenGL(m_Window, true);
+	ImGui_ImplOpenGL3_Init("#version 330");
+
 	while (!glfwWindowShouldClose(m_Window)) {
 		float currentFrame = static_cast<float>(glfwGetTime());
 		m_DeltaTime = currentFrame - m_LastFrame;
@@ -174,36 +174,46 @@ void Window::update() {
 
 void Window::render() {
 	glClearColor(0.2f, 0.3f, 0.3f, 1.0f);
+	//glClearColor(0.0f, 0.0f, 0.0f, 1.0f);
 	glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
-	m_Shader.use();
-	float offset = 0.5f;
-	float speed = 0.75f;
-	float timeValue = static_cast<float>(glfwGetTime());
-	m_Shader.setFloat("xOffset", cos(speed * timeValue) * offset);
-	m_Shader.setFloat("yOffset", sin(25 * speed * timeValue) * offset);
-	m_Shader.setFloat("colorOffset", cos(timeValue / 2.0f));
-	m_Shader.setFloat("mixValue", m_MixValue);
-	m_Shader.setFloat("time", timeValue);
+	ImGui_ImplOpenGL3_NewFrame();
+	ImGui_ImplGlfw_NewFrame();
+	ImGui::NewFrame();
 
-	glm::mat4 projection = glm::mat4(2.0f);
-	projection = glm::perspective(glm::radians(m_Camera.getZoom()), 800.0f / 600.0f, 0.1f, 100.0f);
+	bool isMovingLight = true;
+
+	float lightSpeed = 0.75f;
+	float lightRadius = 5.0f;
+	float time = static_cast<float>(glfwGetTime());
+	float lightX = sin(lightSpeed) * lightRadius;
+	float lightZ = cos(lightSpeed) * lightRadius;
+	if (isMovingLight) {
+		lightX = sin(time * lightSpeed) * lightRadius;
+		lightZ = cos(time * lightSpeed) * lightRadius;
+	}
+	glm::vec3 lightPos = glm::vec3(lightX, 1.0f, lightZ);
+
+	glm::mat4 projection = glm::perspective(glm::radians(m_Camera.getZoom()),
+		static_cast<float>(m_Width) / static_cast<float>(m_Height), 0.1f, 100.0f);
+	glm::mat4 view = m_Camera.getViewMatrix();
+
+	m_Shader.use();
 
 	m_Shader.setMatrix("projection", projection);
-
-	glActiveTexture(GL_TEXTURE0);
-	glBindTexture(GL_TEXTURE_2D, m_Texture1);
-	glActiveTexture(GL_TEXTURE1);
-	glBindTexture(GL_TEXTURE_2D, m_Texture2);
-
-	const float radius = 5.0f;
-	float camX = static_cast<float>(sin(glfwGetTime()) * radius);
-	float camZ = static_cast<float>(cos(glfwGetTime()) * radius);
-	glm::mat4 view = m_Camera.getViewMatrix();
 	m_Shader.setMatrix("view", view);
+	m_Shader.setFloat("mixValue", m_MixValue);
+	m_Shader.setFloat("time", time);
 
+	m_Shader.setVec3f("lightPos", lightPos);
+	m_Shader.setVec3f("lightColor", glm::vec3(1.0f));
+	m_Shader.setVec3f("viewPos", m_Camera.getPosition());
 
-	glBindVertexArray(m_VAO);
+	m_Texture1->bind(0);
+	m_Texture2->bind(1);
+	
+
+	glBindVertexArray(m_CubeVAO);
 	for (size_t i = 0; i < m_CubePositions.size(); i++) {
 		glm::mat4 model = glm::mat4(1.0f);
 		model = glm::translate(model, m_CubePositions[i]);
@@ -212,6 +222,27 @@ void Window::render() {
 		m_Shader.setMatrix("model", model);
 		glDrawArrays(GL_TRIANGLES, 0, 36);
 	}
+
+	m_LightShader.use();
+	m_LightShader.setMatrix("projection", projection);
+	m_LightShader.setMatrix("view", view);
+	m_LightShader.setVec3f("objectColor", glm::vec3(1.0f));
+
+	glm::mat4 model = glm::mat4(1.0f);
+	model = glm::translate(model, lightPos);
+	model = glm::scale(model, glm::vec3(0.3f));
+
+	m_LightShader.setMatrix("model", model);
+
+	glBindVertexArray(m_LightVAO);
+	glDrawArrays(GL_TRIANGLES, 0, 36);
+
+	ImGui::Begin("ImGUI window");
+	ImGui::Checkbox("Moving light", &isMovingLight);
+	ImGui::End();
+
+	ImGui::Render();
+	ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void Window::handleResize(int width, int height) {
@@ -224,70 +255,106 @@ void Window::handleResize(int width, int height) {
 void Window::processInput() {
 	Input::update(m_Window);
 
+	ImGuiIO& io = ImGui::GetIO();
+
 	float speedMultiplier = 1.0f;
-
-	// Speed boost when left shift is held
-	if (Input::isKeyDown(GLFW_KEY_LEFT_SHIFT)) {
-		speedMultiplier = SHIFT_BOOST;
-	}
-
-	// Rotation speed control
-	if (Input::isKeyDown(GLFW_KEY_RIGHT)) {
-		m_RotateSpeed += ROTATION_SPEED_RATE * m_DeltaTime;
-	}
-	if (Input::isKeyDown(GLFW_KEY_LEFT)) {
-		m_RotateSpeed -= ROTATION_SPEED_RATE * m_DeltaTime;
-	}
-	m_RotateSpeed = glm::clamp(m_RotateSpeed, MIN_ROTATION_SPEED, MAX_ROTATION_SPEED);
-
+	float rollOffset = 0.0f;
 
 	// Close window on escape key press
 	if (Input::isKeyPressed(GLFW_KEY_ESCAPE)) {
 		glfwSetWindowShouldClose(m_Window, true);
 	}
 
-	// Enable painting mode
-	if (Input::isKeyPressed(GLFW_KEY_P)) {
-		m_PaintingMode = !m_PaintingMode;
-	}
-
-	// Spawn cube
-	if (Input::isKeyDown(GLFW_KEY_E)) {
-		if (m_PaintingMode) {
-			m_CubePositions.push_back(m_Camera.getSpawnPosition(SPAWN_DISTANCE));
+	// Tab switch between ImGUI and Camera mode
+	if (Input::isKeyPressed(GLFW_KEY_TAB)) {
+		if (glfwGetInputMode(m_Window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
+			glfwSetInputMode(m_Window, GLFW_CURSOR, GLFW_CURSOR_NORMAL);
 		}
 		else {
-			if (Input::isKeyPressed(GLFW_KEY_E))
-				m_CubePositions.push_back(m_Camera.getSpawnPosition(SPAWN_DISTANCE));
+			glfwSetInputMode(m_Window, GLFW_CURSOR, GLFW_CURSOR_DISABLED);
 		}
 	}
 
-	// Mix value
-	if (Input::isKeyDown(GLFW_KEY_UP)) {
-		m_MixValue += MIX_VALUE_CHANGE_RATE * m_DeltaTime;
+	// If ImGui active -> disable other processing
+	if (io.WantCaptureKeyboard || io.WantCaptureMouse) {
+		return;
 	}
-	if (Input::isKeyDown(GLFW_KEY_DOWN)) {
-		m_MixValue -= MIX_VALUE_CHANGE_RATE * m_DeltaTime;
-	}
-	m_MixValue = glm::clamp(m_MixValue, MIN_MIX_VALUE, MAX_MIX_VALUE);
+	// ImGui focus
+	if (glfwGetInputMode(m_Window, GLFW_CURSOR) == GLFW_CURSOR_DISABLED) {
+		// Speed boost when left shift is held
+		if (Input::isKeyDown(GLFW_KEY_LEFT_SHIFT)) {
+			speedMultiplier = SHIFT_BOOST;
+		}
+
+		// Rotation speed control
+		if (Input::isKeyDown(GLFW_KEY_RIGHT)) {
+			m_RotateSpeed += ROTATION_SPEED_RATE * m_DeltaTime;
+		}
+		if (Input::isKeyDown(GLFW_KEY_LEFT)) {
+			m_RotateSpeed -= ROTATION_SPEED_RATE * m_DeltaTime;
+		}
+		m_RotateSpeed = glm::clamp(m_RotateSpeed, MIN_ROTATION_SPEED, MAX_ROTATION_SPEED);
+
+		// Enable painting mode
+		if (Input::isKeyPressed(GLFW_KEY_P)) {
+			m_PaintingMode = !m_PaintingMode;
+		}
+
+		// Spawn cube
+		if (Input::isKeyDown(GLFW_KEY_F)) {
+			if (m_PaintingMode) {
+				m_CubePositions.push_back(m_Camera.getSpawnPosition(SPAWN_DISTANCE));
+			}
+			else {
+				if (Input::isKeyPressed(GLFW_KEY_F))
+					m_CubePositions.push_back(m_Camera.getSpawnPosition(SPAWN_DISTANCE));
+			}
+		}
+
+		// Mix value
+		if (Input::isKeyDown(GLFW_KEY_UP)) {
+			m_MixValue += MIX_VALUE_CHANGE_RATE * m_DeltaTime;
+		}
+		if (Input::isKeyDown(GLFW_KEY_DOWN)) {
+			m_MixValue -= MIX_VALUE_CHANGE_RATE * m_DeltaTime;
+		}
+		m_MixValue = glm::clamp(m_MixValue, MIN_MIX_VALUE, MAX_MIX_VALUE);
 
 
-	// Camera movement
-	if (Input::isKeyDown(GLFW_KEY_W)) {
-		m_Camera.processKeyboard(FORWARD, m_DeltaTime, speedMultiplier);
-	}
-	if (Input::isKeyDown(GLFW_KEY_S)) {
-		m_Camera.processKeyboard(BACKWARD, m_DeltaTime, speedMultiplier);
-	}
-	if (Input::isKeyDown(GLFW_KEY_A)) {
-		m_Camera.processKeyboard(LEFT, m_DeltaTime, speedMultiplier);
-	}
-	if (Input::isKeyDown(GLFW_KEY_D)) {
-		m_Camera.processKeyboard(RIGHT, m_DeltaTime, speedMultiplier);
+		// Camera movement
+		if (Input::isKeyDown(GLFW_KEY_W)) {
+			m_Camera.processKeyboard(CameraMovement::FORWARD, m_DeltaTime, speedMultiplier);
+		}
+		if (Input::isKeyDown(GLFW_KEY_S)) {
+			m_Camera.processKeyboard(CameraMovement::BACKWARD, m_DeltaTime, speedMultiplier);
+		}
+		if (Input::isKeyDown(GLFW_KEY_A)) {
+			m_Camera.processKeyboard(CameraMovement::LEFT, m_DeltaTime, speedMultiplier);
+		}
+		if (Input::isKeyDown(GLFW_KEY_D)) {
+			m_Camera.processKeyboard(CameraMovement::RIGHT, m_DeltaTime, speedMultiplier);
+		}
+		if (Input::isKeyDown(GLFW_KEY_Q)) {
+			rollOffset -= ROLL * m_DeltaTime;
+		}
+		if (Input::isKeyDown(GLFW_KEY_E)) {
+			rollOffset += ROLL * m_DeltaTime;
+		}
+
+		if (rollOffset != 0.0f) {
+			m_Camera.processRoll(rollOffset);
+		}
 	}
 }
 
 void Window::handleMouseMovement(double xposIn, double yposIn) {
+	ImGuiIO& io = ImGui::GetIO();
+
+	if (io.WantCaptureMouse || glfwGetInputMode(m_Window, GLFW_CURSOR) == GLFW_CURSOR_NORMAL) {
+		m_FirstMouse = true;
+		return;
+	}
+
 	float xpos = static_cast<float>(xposIn);
 	float ypos = static_cast<float>(yposIn);
 

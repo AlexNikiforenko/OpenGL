@@ -1,5 +1,9 @@
 #pragma once
 
+#include <imgui.h>
+#include <imgui_impl_glfw.h>
+#include <imgui_impl_opengl3.h>
+
 #include <glad/glad.h>
 #include <GLFW/glfw3.h>
 #include <glm/glm.hpp>
@@ -8,8 +12,11 @@
 
 #include "Shader.h"
 #include "Camera.h"
+#include "Texture.h"
+
 
 #include <vector>
+#include <memory>
 
 const float SPAWN_DISTANCE = 5.0f;
 
@@ -29,19 +36,25 @@ public:
 	static void glfwScrollCallback(GLFWwindow* window, double xoffset, double yoffset);
 
 private:
+	void handleResize(int width, int height);
+	void handleMouseMovement(double xposIn, double yposIn);
+	void handleMouseScroll(double xoffset, double yoffset);
+
 	GLFWwindow* m_Window = nullptr;
 
 	Camera m_Camera;
 	Shader m_Shader;
+	Shader m_LightShader;
 
 	std::vector<glm::vec3> m_CubePositions;
 
 	unsigned int m_VBO = 0;
-	unsigned int m_VAO = 0;
+	unsigned int m_CubeVAO = 0;
+	unsigned int m_LightVAO = 0;
 	unsigned int m_EBO = 0;
 
-	unsigned int m_Texture1 = 0;
-	unsigned int m_Texture2 = 0;
+	std::unique_ptr<Texture> m_Texture1;
+	std::unique_ptr<Texture> m_Texture2;
 
 	int m_Width = 800;
 	int m_Height = 600;
@@ -51,15 +64,11 @@ private:
 	bool m_FirstMouse = true;
 	bool m_PaintingMode = false;
 
-	float m_MixValue = 0.2f;
+	float m_MixValue = 0.0f;
 	float m_RotateSpeed = 0.1f;
 
-	float m_DeltaTime = 0.0f;	// Time between current frame and last frame
-	float m_LastFrame = 0.0f; // Time of last frame
-
-	void handleResize(int width, int height);
-	void handleMouseMovement(double xposIn, double yposIn);
-	void handleMouseScroll(double xoffset, double yoffset);
+	float m_DeltaTime = 0.0f;	
+	float m_LastFrame = 0.0f;
 
 	static constexpr float SHIFT_BOOST = 3.0f;
 	static constexpr float ROTATION_SPEED_RATE = 5.0f;
