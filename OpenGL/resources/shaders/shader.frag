@@ -14,11 +14,12 @@ uniform float time;
 uniform vec3 lightPos;
 uniform vec3 lightColor;
 uniform vec3 viewPos;
+uniform vec3 objectColor;
 
 void main()
 {
 	//vec4 texColor = mix(texture(texture1, TexCoord), texture(texture2, vec2(1.0 - TexCoord.x, TexCoord.y)), mixValue);
-	vec4 texColor = vec4(1.0, 0.5, 0.2, 1.0);
+	vec4 texColor = vec4(objectColor, 1.0);
 
 	float ambientStrength = 0.1;
 	vec3 ambient = ambientStrength * lightColor;

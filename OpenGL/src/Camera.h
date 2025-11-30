@@ -11,20 +11,23 @@ enum class CameraMovement {
 	RIGHT
 };
 
-// Default camera values
-const float YAW         = -90.0f;
-const float PITCH       =  0.0f;
-const float ROLL        =  100.0f;
-const float SPEED       =  2.5f;
-const float SENSITIVITY =  0.1f;
-const float ZOOM        =  45.0f;
+namespace CameraDefaults {
+	inline constexpr float yaw           = -90.0f;
+	inline constexpr float pitch         =  0.0f;
+
+	inline constexpr float rollSpeed     = 100.0f;
+
+	inline constexpr float speed         = 2.5f;
+	inline constexpr float sensitivity   = 0.1f;
+	inline constexpr float zoom          = 45.0f;
+};
 
 class Camera {
 public:
 	// Vector constructor
 	Camera(glm::vec3 position = glm::vec3(0.0f, 0.0f, 0.0f), 
 		   glm::vec3 up = glm::vec3(0.0f, 1.0f, 0.0f),
-		   float yaw = YAW, float pitch = PITCH, float roll = ROLL);
+		   float yaw = CameraDefaults::yaw, float pitch = CameraDefaults::pitch, float roll = CameraDefaults::rollSpeed);
 
 	// Scalar values constructor
 	Camera(float posX, float posY,
@@ -63,12 +66,12 @@ private:
 	glm::vec3 m_WorldUp;
 
 	// Euler angles
-	float m_Yaw = YAW;
-	float m_Pitch = PITCH;
+	float m_Yaw = CameraDefaults::yaw;
+	float m_Pitch = CameraDefaults::pitch;
 	float m_Roll = 0.0f;
 
 	// Camera options
-	float m_MovementSpeed = SPEED;
-	float m_MouseSensitivity = SENSITIVITY;
-	float m_Zoom = ZOOM;
+	float m_MovementSpeed = CameraDefaults::speed;
+	float m_MouseSensitivity = CameraDefaults::sensitivity;
+	float m_Zoom = CameraDefaults::zoom;
 };

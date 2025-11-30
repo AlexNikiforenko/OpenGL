@@ -13,12 +13,13 @@
 #include "Shader.h"
 #include "Camera.h"
 #include "Texture.h"
+#include "Scene.h"
+#include "ImGuiLayer.h"
 
 
 #include <vector>
 #include <memory>
 
-const float SPAWN_DISTANCE = 5.0f;
 
 class Window {
 public:
@@ -46,7 +47,8 @@ private:
 	Shader m_Shader;
 	Shader m_LightShader;
 
-	std::vector<glm::vec3> m_CubePositions;
+	Scene m_Scene;
+	ImGuiLayer m_ImGuiLayer;
 
 	unsigned int m_VBO = 0;
 	unsigned int m_CubeVAO = 0;
@@ -62,19 +64,7 @@ private:
 	double m_LastX = 0.0;
 	double m_LastY = 0.0;
 	bool m_FirstMouse = true;
-	bool m_PaintingMode = false;
-
-	float m_MixValue = 0.0f;
-	float m_RotateSpeed = 0.1f;
 
 	float m_DeltaTime = 0.0f;	
 	float m_LastFrame = 0.0f;
-
-	static constexpr float SHIFT_BOOST = 3.0f;
-	static constexpr float ROTATION_SPEED_RATE = 5.0f;
-	static constexpr float MIN_ROTATION_SPEED = 0.0f;
-	static constexpr float MAX_ROTATION_SPEED = 30.0f;
-	static constexpr float MIX_VALUE_CHANGE_RATE = 1.0f;
-	static constexpr float MIN_MIX_VALUE = 0.0f;
-	static constexpr float MAX_MIX_VALUE = 1.0f;
 };

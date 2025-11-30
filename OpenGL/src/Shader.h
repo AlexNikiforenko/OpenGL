@@ -7,9 +7,9 @@
 class Shader {
 public:
 	// Program ID
-	unsigned int ID;
+	unsigned int m_ID = 0;
 
-	Shader() : ID(0) {}
+	Shader() = default;
 
 	// Constructor reads and build shader
 	Shader(const char* vertexPath, const char* fragmentPath);
